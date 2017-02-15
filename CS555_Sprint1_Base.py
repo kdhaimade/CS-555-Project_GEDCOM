@@ -35,7 +35,6 @@ def print_list(ip_list):
 """This function parses the GEDCOM File and returns 2 lists: one for individuals and another for families"""
 def parse(file_name):
     f = open(file_name,'r')
-    f_len = file_len(open(file_name))
     indi_on = 0
     fam_on = 0
     list_indi = []
