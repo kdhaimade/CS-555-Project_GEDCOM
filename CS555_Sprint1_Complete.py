@@ -61,19 +61,30 @@ def convertDateFormat(date):
 """This function returns True if all the Dates are before the Current Date, otherwise returns False"""
 def DatesBeforeCurrDate(list_indi, list_fam):
     curr_date = getCurrDate()
+    bad_date_list = []
     for i in list_indi:
         if(i[3] > curr_date):
-            return False
+            bad_date_list.append(i[3])
+            print("US01: The Birth Date " + i[3] + " of Individual " + i[0] + " occurs before the current date.")
         if(i[4] != 0):
             if(i[4] > curr_date):
-                return False
+                bad_date_list.append(i[4])
+                print("US01: The Death Date " + i[4] + " of Individual " + i[0] + " occurs before the current date.")
     for i in list_fam:
         if(i[3] > curr_date):
-            return False
+            bad_date_list.append(i[3])
+            print("US01: The Marriage Date " + i[3] + " of Family " + i[0] + " occurs before the current date.")
         if(i[4] != 0):
             if(i[4] > curr_date):
-                return False
-    return True
+                bad_date_list.append(i[4])
+                print("US01: The Divorce Date " + i[4] + " of Family " + i[0] + " occurs before the current date.")
+    if(len(bad_date_list) == 0):
+        print("US01: All the Dates are before the current date.")
+        print()
+    else:
+        print("US01: The following Date(s) occur after the current date: ", end = '')
+        print(bad_date_list)
+        print()
 
 def getBirthDateByID(list_indi, id):
     for i in list_indi:
@@ -81,38 +92,59 @@ def getBirthDateByID(list_indi, id):
             return i[3]
 
 def BirthBeforeMarr(list_indi, list_fam):
-    for i in list_fam:
-        marr_date = i[3]
-        if(getBirthDateByID(list_indi, i[1]) > marr_date):
-            return False
-        if(getBirthDateByID(list_indi, i[2]) > marr_date):
-            return False
-    return True
+    bad_list = []
+    for i in list_indi:
+        birth_date = i[3]
+        if(i[5] != []):
+            for j in i[5]:
+                if(birth_date > getMarrDateByID(list_fam, j)):
+                    bad_list.append(i[0])
+                    print("US02: The Individual " + i[0] + " has Birth Date occuring after his/her Marriage Date.")
+                    break
+    if(len(bad_list) == 0):
+        print("US02: All the Individuals have their Birth Dates occuring before their respective Marriage Dates.")
+        print()
+    else:
+        print("US02: The following Individual(s) have their Birth Dates occuring after their respective Marriage Dates: ", end = '')
+        print(bad_list)
+        print()
 
 def noBigamy(list_indi, list_fam):
+    bad_list = []
     for i in list_indi:
         temp_fam = []
         temp = []
         if(len(i[5]) > 1):
-            no_of_fam = len(i[5])
             self_id = i[0]
             for j in i[5]:
                 temp.append(getMarrDateByID(list_fam, j))
                 temp.append(j)
                 temp.append(getSpouseByID(list_fam, j, self_id))
+                temp.append(getDivDateByID(list_fam, j))
+                temp.append(getDeathDateByID(list_indi, getSpouseByID(list_fam, j, self_id)))
                 temp_fam.append(temp)
                 temp = []
-        temp_fam.sort()
-        for k in range(1,len(temp_fam)):
-            if(temp_fam[k][0] <= temp_fam[k-1][0]):
-                return False
-            if(getDivDateByID(list_fam, temp_fam[k-1][1]) != None):
-                if(temp_fam[k][0] < getDivDateByID(list_fam, temp_fam[k-1][1])):
-                    return False
-            if(getDeathDateByID(list_indi, temp_fam[k-1][2]) != None):
-                if(temp_fam[k][0] < getDeathDateByID(list_indi, temp_fam[k-1][2])):
-                    return False
-    return True
+            temp_fam.sort()
+            for k in range(1, len(temp_fam)):
+                if(temp_fam[k-1][3] == None and temp_fam[k-1][4] == None):
+                    bad_list.append(self_id)
+                    print("US11: The Individual " + self_id + " is married to Individual " + temp_fam[k][2] + " in Family " + temp_fam[k][1] + " while still married to Individual " + temp_fam[k-1][2] + " in Family " + temp_fam[k-1][1] + ".")
+                else:
+                    if(temp_fam[k-1][3] != None):
+                        if(temp_fam[k][0] < temp_fam[k-1][3]):
+                            bad_list.append(self_id)
+                            print("US11: The Individual " + self_id + " is married to Individual " + temp_fam[k][2] + " in Family " + temp_fam[k][1] + " before divorcing spouse " + temp_fam[k-1][2] + " in Family " + temp_fam[k-1][1] + ".")
+                    if(temp_fam[k-1][4] != None):
+                        if(temp_fam[k][0] < temp_fam[k-1][4]):
+                            bad_list.append(self_id)
+                            print("US11: The Individual " + self_id + " is married to Individual " + temp_fam[k][2] + " in Family " + temp_fam[k][1] + " before the death of spouse " + temp_fam[k-1][2] + " in Family " + temp_fam[k-1][1] + ".")
+    if(len(bad_list) == 0):
+        print("US11: No Individual is involved in any kind of Bigamy.")
+        print()
+    else:
+        print("US11: The following Individual(s) are involved in Bigamy: ", end = '')
+        print(bad_list)
+        print()
 
 def getMarrDateByID(list_fam, id):
     for i in list_fam:
@@ -140,10 +172,35 @@ def getDeathDateByID(list_indi, id):
                 return i[4]
 
 def NoMarriageBefore14(list_indi, list_fam):
+    bad_list = []
     for i in list_fam:
-        if(getAgeByID(list_indi, i[1])<14 or getAgeByID(list_indi, i[2])<14):
-            return False
-    return True
+        if(getMarrAgeByID(list_indi, i[1], i[3])<14):
+            bad_list.append(i[1])
+            print("US10: The Individual " + i[1] + " married before turning 14 years of age in family " + i[0] + ".")
+        if(getMarrAgeByID(list_indi, i[2], i[3])<14):
+            bad_list.append(i[2])
+            print("US10: The Individual " + i[2] + " married before turning 14 years of age in family " + i[0] + ".")
+    if(len(bad_list) == 0):
+        print("US10: No Individual married before turning 14 years of age.")
+        print()
+    else:
+        print("US10: The following Individual(s) married before turning 14 years of age: ", end = '')
+        print(bad_list)
+        print()
+
+def getMarrAgeByID(list_indi, id, marr_date):
+    temp = marr_date.split('-')
+    marr_year = int(temp[0])
+    marr_month = int(temp[1])
+    marr_date = int(temp[2])
+    for i in list_indi:
+        if(i[0] == id):
+            birth_date = i[3]
+    temp = birth_date.split('-')
+    birth_year = int(temp[0])
+    birth_month = int(temp[1])
+    birth_date = int(temp[2])
+    return marr_year - birth_year - ((marr_month, marr_date) < (birth_month, birth_date))
 
 def getAgeByID(list_indi, id):
     dead_flag = 0
@@ -170,12 +227,21 @@ def getAgeByID(list_indi, id):
     return curr_year - birth_year - ((curr_month, curr_date) < (birth_month, birth_date))
 
 def CorrectGenderRoles(list_indi, list_fam):
+    bad_list = []
     for i in list_fam:
         if(getSexByID(list_indi, i[1]) != 'M'):
-            return False
+            bad_list.append(i[1])
+            print("US21: The Individual " + i[1] + " in family " + i[0] + " has incorrect Gender role.")
         if(getSexByID(list_indi, i[2]) != 'F'):
-            return False
-    return True
+            bad_list.append(i[2])
+            print("US21: The Individual " + i[2] + " in family " + i[0] + " has incorrect Gender role.")
+    if(len(bad_list) == 0):
+        print("US21: The Individuals in all the Families have correct gender roles.")
+        print()
+    else:
+        print("US21: The following Individual(s) have incorrect gender role: ", end = '')
+        print(bad_list)
+        print()
 
 def getSexByID(list_indi, id):
     for i in list_indi:
@@ -185,15 +251,39 @@ def getSexByID(list_indi, id):
 def UniqueID(list_indi, list_fam):
     indi_id_list = []
     fam_id_list = []
+    dup_iid_list = []
+    dup_fid_list = []
+    flag = 0
     for i in list_indi:
         indi_id_list.append(i[0])
     for i in list_fam:
         fam_id_list.append(i[0])
-    if(len(indi_id_list) != len(set(indi_id_list))):
-        return False
-    if(len(fam_id_list) != len(set(fam_id_list))):
-        return False
-    return True
+    if(len(indi_id_list) == len(set(indi_id_list)) and len(fam_id_list) == len(set(fam_id_list))):
+        print("\nUS22: All the IDs are unique.")
+        print()
+    else:
+        for i in indi_id_list:
+            flag = 0
+            for j in indi_id_list:
+                if (i == j):
+                    flag += 1
+                    if(flag > 1):
+                        dup_iid_list.append(i)
+        for i in fam_id_list:
+            flag = 0
+            for j in fam_id_list:
+                if (i == j):
+                    flag += 1
+                    if(flag > 1):
+                        dup_fid_list.append(i)
+        if(len(dup_iid_list) != 0):
+            print("\nUS22: The following Individual ID(s) have been duplicated: ", end = '')
+            print(set(dup_iid_list))
+            print()
+        if(len(dup_fid_list) != 0):
+            print("US22: The following Family ID(s) have been duplicated: ", end = '')
+            print(set(dup_fid_list))
+            print()
 
 """This function parses the GEDCOM File and returns 2 lists: one for individuals and another for families"""
 def parse(file_name):
@@ -261,29 +351,11 @@ def main(file_name):
     list_fam.sort()
     print_list(list_indi)
     print_list(list_fam)
-    if(UniqueID(list_indi, list_fam)):
-        print("\nAll the IDs for the Individuals and the Families are Unique.")
-    else:
-        print("\nOne or more IDs for the Individuals or the Families are not Unique.")
-    if(DatesBeforeCurrDate(list_indi, list_fam)):
-        print("\nAll the Dates are before the Current Date.")
-    else:
-        print("\nOne or more Dates are not before the Current Date.")
-    if(BirthBeforeMarr(list_indi, list_fam)):
-        print("\nAll the Birth Dates are before the respective Marriage Dates")
-    else:
-        print("\nOne or more Birth Dates are not before their respective Marriage Date.")
-    if(NoMarriageBefore14(list_indi, list_fam)):
-        print("\nNobody married before turning at least 14 years of age.")
-    else:
-        print("\nOne or more persons married before turning 14 years of age.")
-    if(CorrectGenderRoles(list_indi, list_fam)):
-        print("\nThe gender roles in all the families are correct.")
-    else:
-        print("\nOne or more families have incorrect gender roles.")
-    if(noBigamy(list_indi, list_fam)):
-        print("\nThere is no Bigamy among the Families.")
-    else:
-        print("\nOne or more families have Bigamy.")
+    UniqueID(list_indi, list_fam)
+    DatesBeforeCurrDate(list_indi, list_fam)
+    BirthBeforeMarr(list_indi, list_fam)
+    NoMarriageBefore14(list_indi, list_fam)
+    CorrectGenderRoles(list_indi, list_fam)
+    noBigamy(list_indi, list_fam)
 
-main('testGEDCOMFile.ged')
+main('testGEDCOMFile_IncorrectData.ged')
